@@ -17,7 +17,37 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ results }) => {
     const formatPercent = (val: number) => new Intl.NumberFormat('fr-CA', { style: 'percent', minimumFractionDigits: 1 }).format(val / 100);
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
+
+            {/* Summary Box Overlay (Top Right) */}
+            <div className="hidden xl:block absolute -top-4 -right-4 z-10 w-80">
+                <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden ring-1 ring-white/10">
+                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-3 border-b border-white/10">
+                        <h3 className="font-bold text-sm uppercase tracking-wider">Récapitulatif (Année 1)</h3>
+                    </div>
+                    <CardContent className="p-4 space-y-3">
+                        <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+                            <span className="text-slate-400">Revenu d'Hébergement Effectif</span>
+                            <span className="font-bold text-emerald-400">{formatCurrency(currentYear.revenue)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+                            <span className="text-slate-400">Dépenses d'Exploitation</span>
+                            <span className="font-bold text-rose-400">-{formatCurrency(currentYear.expenses)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+                            <span className="text-slate-400">Hypothèque (Annuelle)</span>
+                            <span className="font-bold text-blue-400">-{formatCurrency(currentYear.mortgagePayment)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2">
+                            <span className="font-bold text-lg">Profit Net</span>
+                            <span className={`text-2xl font-black ${currentYear.cashflow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {formatCurrency(currentYear.cashflow)}
+                            </span>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
             {/* High Level Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard

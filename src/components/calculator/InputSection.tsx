@@ -21,13 +21,9 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
     const labelClass = "text-slate-700 dark:text-slate-200 font-medium";
 
     // 1. Calculate Total Revenue
-    const totalRevenue = useMemo(() => {
-        const r1 = data.revLowWeekendPrice * data.revLowWeekendCount;
-        const r2 = data.revLowWeekPrice * data.revLowWeekCount;
-        const r3 = data.revHighWeekendPrice * data.revHighWeekendCount;
-        const r4 = data.revHighWeekPrice * data.revHighWeekCount;
-        return r1 + r2 + r3 + r4;
-    }, [data.revLowWeekendPrice, data.revLowWeekendCount, data.revLowWeekPrice, data.revLowWeekCount, data.revHighWeekendPrice, data.revHighWeekendCount, data.revHighWeekPrice, data.revHighWeekCount]);
+    const effectiveRevenue = useMemo(() => {
+        return data.baseRevenue * (1 - data.badDebtPercent / 100);
+    }, [data.baseRevenue, data.badDebtPercent]);
 
     // 2. Calculate Total Expenses (Annual)
     const totalExpenses = useMemo(() => {
@@ -41,18 +37,14 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
             data.waste + data.poolSpa + data.exterminator + data.applianceRepair +
             annualCondoFees + data.fiddlerLakeFees + data.accounting + data.advertising;
 
-        // Variable
-        const bookings = data.revLowWeekendCount + data.revLowWeekCount + data.revHighWeekendCount + data.revHighWeekCount;
-        const cleaning = data.cleaningCostPerStay * bookings;
-
-        // % based fees
-        const gross = totalRevenue;
+        // % based fees (calculated on baseRevenue)
+        const gross = data.baseRevenue;
         const mgmt = gross * (data.managementRate / 100);
         const maint = gross * (data.maintenanceRate / 100);
         const misc = gross * (data.miscellaneousRate / 100);
 
-        return fixed + cleaning + mgmt + maint + misc;
-    }, [data, totalRevenue]);
+        return fixed + data.cleaningCostPerStay + mgmt + maint + misc;
+    }, [data]);
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(val);
 
@@ -76,17 +68,13 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
                         <Label className={labelClass}># MLS</Label>
                         <Input value={data.mlsNumber} onChange={(e) => handleChange('mlsNumber', e.target.value)} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-2">
                         <Label className={labelClass}>Adresse</Label>
                         <Input value={data.address} onChange={(e) => handleChange('address', e.target.value)} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-2">
                         <Label className={labelClass}>Ville</Label>
                         <Input value={data.city} onChange={(e) => handleChange('city', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className={labelClass}>Cadastre</Label>
-                        <Input value={data.cadastre} onChange={(e) => handleChange('cadastre', e.target.value)} />
                     </div>
                 </CardContent>
             </Card>
@@ -95,46 +83,24 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
             <Card className={cardClass}>
                 <CardHeader>
                     <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <span>📈</span> Revenus (Location Court Terme)
+                        <span>📈</span> Revenus
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-6 gap-2 text-sm font-semibold text-slate-500 mb-2">
-                        <div className="col-span-3">Type</div>
-                        <div className="col-span-2">Prix ($)</div>
-                        <div className="col-span-1">Nb.</div>
+                    <div className="space-y-2">
+                        <Label className={labelClass}>Revenu d'Hébergement Excluant Ménage, Frais et Taxes</Label>
+                        <FormattedInput value={data.baseRevenue} onChange={(v) => handleChange('baseRevenue', v)} />
                     </div>
 
-                    <RevenueRow label="Fin de semaine basse saison"
-                        price={data.revLowWeekendPrice} count={data.revLowWeekendCount}
-                        onPriceChange={(v) => handleChange('revLowWeekendPrice', v)}
-                        onCountChange={(v) => handleChange('revLowWeekendCount', v)} />
-
-                    <RevenueRow label="Semaine basse saison"
-                        price={data.revLowWeekPrice} count={data.revLowWeekCount}
-                        onPriceChange={(v) => handleChange('revLowWeekPrice', v)}
-                        onCountChange={(v) => handleChange('revLowWeekCount', v)} />
-
-                    <RevenueRow label="Fin de semaine haute saison"
-                        price={data.revHighWeekendPrice} count={data.revHighWeekendCount}
-                        onPriceChange={(v) => handleChange('revHighWeekendPrice', v)}
-                        onCountChange={(v) => handleChange('revHighWeekendCount', v)} />
-
-                    <RevenueRow label="Semaine haute saison"
-                        price={data.revHighWeekPrice} count={data.revHighWeekCount}
-                        onPriceChange={(v) => handleChange('revHighWeekPrice', v)}
-                        onCountChange={(v) => handleChange('revHighWeekCount', v)} />
+                    <div className="flex items-center justify-between pt-2">
+                        <Label className={labelClass}>Mauvaise créance (%)</Label>
+                        <FormattedInput className="w-24 text-right" value={data.badDebtPercent} onChange={(v) => handleChange('badDebtPercent', v)} />
+                    </div>
 
                     <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-                        <div className="flex items-center justify-between mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800">
-                            <Label className="text-emerald-700 dark:text-emerald-300 font-bold text-lg">Revenu Brut Total</Label>
-                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalRevenue)}</span>
-                        </div>
-                    </div>
-                    <div className="pt-2">
-                        <div className="flex items-center justify-between">
-                            <Label className={labelClass}>Mauvaise créance (%)</Label>
-                            <Input className="w-24" type="number" value={data.badDebtPercent} onChange={(e) => handleChange('badDebtPercent', Number(e.target.value))} />
+                        <div className="space-y-1 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                            <Label className="text-emerald-700 dark:text-emerald-300 font-bold block">Revenu d'Hébergement Effectif Incluant Mauvaise Créance</Label>
+                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(effectiveRevenue)}</span>
                         </div>
                     </div>
                 </CardContent>
@@ -144,45 +110,63 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
             <Card className={cardClass}>
                 <CardHeader>
                     <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <span>💸</span> Dépenses (Exploitation)
+                        <span>💸</span> Dépense Annuelle d'Exploitation
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-12 gap-2 text-sm font-semibold text-slate-500 mb-2">
-                        <div className="col-span-6 md:col-span-5">Item</div>
-                        <div className="hidden md:block col-span-3 text-center text-xs">Guide</div>
-                        <div className="col-span-6 md:col-span-4 text-right">Montant</div>
+                        <div className="col-span-8">Item</div>
+                        <div className="col-span-4 text-right">Montant ($)</div>
                     </div>
 
-                    <ExpenseRow label="Taxes municipale" hint="10% 13% 16%" value={data.taxMunicipal} onChange={(v) => handleChange('taxMunicipal', v)} />
-                    <ExpenseRow label="Taxes scolaire" hint="2% 3% 4%" value={data.taxSchool} onChange={(v) => handleChange('taxSchool', v)} />
-                    <ExpenseRow label="Taxes eau" hint="0%" value={data.taxWater} onChange={(v) => handleChange('taxWater', v)} />
-                    <ExpenseRow label="Assurances" hint="3% 4% 5%" value={data.insurance} onChange={(v) => handleChange('insurance', v)} />
-                    <ExpenseRow label="Publicité" hint="0%" value={data.advertising} onChange={(v) => handleChange('advertising', v)} />
-                    <ExpenseRow label="CITQ" hint="" value={data.citq} onChange={(v) => handleChange('citq', v)} />
+                    <ExpenseRow label="Taxes municipale" value={data.taxMunicipal} onChange={(v) => handleChange('taxMunicipal', v)} />
+                    <ExpenseRow label="Taxes scolaire" value={data.taxSchool} onChange={(v) => handleChange('taxSchool', v)} />
+                    <ExpenseRow label="Taxes eau" value={data.taxWater} onChange={(v) => handleChange('taxWater', v)} />
+                    <ExpenseRow label="Assurances" value={data.insurance} onChange={(v) => handleChange('insurance', v)} />
+                    <ExpenseRow label="Publicité" value={data.advertising} onChange={(v) => handleChange('advertising', v)} />
+                    <ExpenseRow label="CITQ" value={data.citq} onChange={(v) => handleChange('citq', v)} />
 
-                    <ExpenseRow label="Frais d'admin / gestion (%)" isPercent hint="8% 12% 15%" value={data.managementRate} onChange={(v) => handleChange('managementRate', v)} />
-                    <ExpenseRow label="Frais de Ménage par location ($/stay)" hint="" value={data.cleaningCostPerStay} onChange={(v) => handleChange('cleaningCostPerStay', v)} />
+                    <ExpenseRow
+                        label="Frais de Gestion (%)"
+                        isPercent
+                        percentValue={data.managementRate}
+                        onPercentChange={(v) => handleChange('managementRate', v)}
+                        calculatedValue={data.baseRevenue * (data.managementRate / 100)}
+                    />
 
-                    <ExpenseRow label="Déneigement" hint="0%" value={data.snowRemoval} onChange={(v) => handleChange('snowRemoval', v)} />
-                    <ExpenseRow label="Pelouse, paysagement" hint="0%" value={data.lawnCare} onChange={(v) => handleChange('lawnCare', v)} />
+                    <ExpenseRow label="Frais de Ménage ($ total)" value={data.cleaningCostPerStay} onChange={(v) => handleChange('cleaningCostPerStay', v)} />
 
-                    <ExpenseRow label="Entretien par mois/logement (%)" isPercent hint="5% 8% 10%" value={data.maintenanceRate} onChange={(v) => handleChange('maintenanceRate', v)} />
+                    <ExpenseRow label="Déneigement" value={data.snowRemoval} onChange={(v) => handleChange('snowRemoval', v)} />
+                    <ExpenseRow label="Pelouse, paysagement" value={data.lawnCare} onChange={(v) => handleChange('lawnCare', v)} />
 
-                    <ExpenseRow label="Exterminateur" hint="0%" value={data.exterminator} onChange={(v) => handleChange('exterminator', v)} />
-                    <ExpenseRow label="Location appareils / eau chaude" hint="0%" value={data.waterHeating} onChange={(v) => handleChange('waterHeating', v)} />
-                    <ExpenseRow label="Réparation électroménagers" hint="0%" value={data.applianceRepair} onChange={(v) => handleChange('applianceRepair', v)} />
-                    <ExpenseRow label="Déchets" hint="0%" value={data.waste} onChange={(v) => handleChange('waste', v)} />
-                    <ExpenseRow label="Electricité" hint="0%" value={data.electricity} onChange={(v) => handleChange('electricity', v)} />
-                    <ExpenseRow label="Huile ou gaz naturel" hint="0%" value={data.heating} onChange={(v) => handleChange('heating', v)} />
-                    <ExpenseRow label="Bois" hint="" value={data.wood} onChange={(v) => handleChange('wood', v)} />
-                    <ExpenseRow label="Piscine ou SPA" hint="0%" value={data.poolSpa} onChange={(v) => handleChange('poolSpa', v)} />
-                    <ExpenseRow label="Câble / internet / téléphone" hint="0%" value={data.cableInternet} onChange={(v) => handleChange('cableInternet', v)} />
-                    <ExpenseRow label="Comptabilité" hint="0%" value={data.accounting} onChange={(v) => handleChange('accounting', v)} />
-                    <ExpenseRow label="Frais de condo (par mois)" hint="0%" value={data.condoFees} onChange={(v) => handleChange('condoFees', v)} />
-                    <ExpenseRow label="Frais d'association Fiddler Lake" hint="" value={data.fiddlerLakeFees} onChange={(v) => handleChange('fiddlerLakeFees', v)} />
+                    <ExpenseRow
+                        label="Entretien par mois/logement (%)"
+                        isPercent
+                        percentValue={data.maintenanceRate}
+                        onPercentChange={(v) => handleChange('maintenanceRate', v)}
+                        calculatedValue={data.baseRevenue * (data.maintenanceRate / 100)}
+                    />
 
-                    <ExpenseRow label="Divers (%)" isPercent hint="1% 3% 5%" value={data.miscellaneousRate} onChange={(v) => handleChange('miscellaneousRate', v)} />
+                    <ExpenseRow label="Exterminateur" value={data.exterminator} onChange={(v) => handleChange('exterminator', v)} />
+                    <ExpenseRow label="Location appareils / eau chaude" value={data.waterHeating} onChange={(v) => handleChange('waterHeating', v)} />
+                    <ExpenseRow label="Réparation électroménagers" value={data.applianceRepair} onChange={(v) => handleChange('applianceRepair', v)} />
+                    <ExpenseRow label="Déchets" value={data.waste} onChange={(v) => handleChange('waste', v)} />
+                    <ExpenseRow label="Electricité" value={data.electricity} onChange={(v) => handleChange('electricity', v)} />
+                    <ExpenseRow label="Huile ou gaz naturel" value={data.heating} onChange={(v) => handleChange('heating', v)} />
+                    <ExpenseRow label="Bois" value={data.wood} onChange={(v) => handleChange('wood', v)} />
+                    <ExpenseRow label="Piscine ou SPA" value={data.poolSpa} onChange={(v) => handleChange('poolSpa', v)} />
+                    <ExpenseRow label="Câble / internet / téléphone" value={data.cableInternet} onChange={(v) => handleChange('cableInternet', v)} />
+                    <ExpenseRow label="Comptabilité" value={data.accounting} onChange={(v) => handleChange('accounting', v)} />
+                    <ExpenseRow label="Frais de condo (par mois)" value={data.condoFees} onChange={(v) => handleChange('condoFees', v)} />
+                    <ExpenseRow label="Frais d'association Fiddler Lake" value={data.fiddlerLakeFees} onChange={(v) => handleChange('fiddlerLakeFees', v)} />
+
+                    <ExpenseRow
+                        label="Divers (%)"
+                        isPercent
+                        percentValue={data.miscellaneousRate}
+                        onPercentChange={(v) => handleChange('miscellaneousRate', v)}
+                        calculatedValue={data.baseRevenue * (data.miscellaneousRate / 100)}
+                    />
 
                     <div className="pt-4 mt-6 border-t border-slate-100 dark:border-slate-700">
                         <div className="flex items-center justify-between p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg border border-rose-100 dark:border-rose-800">
@@ -191,6 +175,25 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
                         </div>
                     </div>
 
+                </CardContent>
+            </Card>
+
+            {/* Mortgage Section */}
+            <Card className={cardClass}>
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <span>🏠</span> Hypothèque
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label className={labelClass}>Hypothèque Mensuelle</Label>
+                        <FormattedInput value={data.monthlyMortgageAmount} onChange={(v) => handleChange('monthlyMortgageAmount', v)} />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <Label className={labelClass}>Hypothèque Annuelle</Label>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{formatCurrency(data.monthlyMortgageAmount * 12)}</span>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -223,21 +226,81 @@ export const InputSection: React.FC<InputSectionProps> = ({ data, onChange }) =>
     );
 };
 
-const RevenueRow = ({ label, price, count, onPriceChange, onCountChange }: { label: string, price: number, count: number, onPriceChange: (v: number) => void, onCountChange: (v: number) => void }) => (
-    <div className="grid grid-cols-6 gap-2 items-center">
-        <Label className="col-span-3 text-xs md:text-sm text-slate-700 dark:text-slate-200">{label}</Label>
-        <Input className="col-span-2 h-8" type="number" value={price} onChange={(e) => onPriceChange(Number(e.target.value))} />
-        <Input className="col-span-1 h-8" type="number" value={count} onChange={(e) => onCountChange(Number(e.target.value))} />
-    </div>
-);
+// Helper component for formatted numeric inputs
+const FormattedInput = ({ value, onChange, className, step = "1" }: { value: number, onChange: (v: number) => void, className?: string, step?: string }) => {
+    const [isFocused, setIsFocused] = React.useState(false);
+    const [inputValue, setInputValue] = React.useState(value.toString());
 
-const ExpenseRow = ({ label, value, onChange, hint, isPercent }: { label: string, value: number, onChange: (v: number) => void, hint?: string, isPercent?: boolean }) => (
+    React.useEffect(() => {
+        if (!isFocused) {
+            setInputValue(value.toString());
+        }
+    }, [value, isFocused]);
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        const parsed = parseFloat(inputValue.replace(/,/g, ''));
+        if (!isNaN(parsed)) {
+            onChange(parsed);
+        } else {
+            setInputValue(value.toString());
+        }
+    };
+
+    const displayValue = isFocused
+        ? inputValue
+        : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
+
+    return (
+        <Input
+            className={className}
+            type="text"
+            value={displayValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={handleBlur}
+        />
+    );
+};
+
+const ExpenseRow = ({
+    label,
+    value,
+    onChange,
+    isPercent,
+    percentValue,
+    onPercentChange,
+    calculatedValue
+}: {
+    label: string,
+    value?: number,
+    onChange?: (v: number) => void,
+    isPercent?: boolean,
+    percentValue?: number,
+    onPercentChange?: (v: number) => void,
+    calculatedValue?: number
+}) => (
     <div className="grid grid-cols-12 gap-2 items-center border-b border-slate-50 dark:border-slate-800/50 last:border-0 pb-2 last:pb-0">
-        <Label className="col-span-6 md:col-span-5 text-xs md:text-sm text-slate-700 dark:text-slate-200">{label}</Label>
-        <div className="hidden md:block col-span-3 text-center text-xs text-slate-400 italic">{hint}</div>
-        <div className="col-span-6 md:col-span-4 flex items-center gap-2">
-            <Input className="h-8 text-right" type="number" step={isPercent ? "0.1" : "1"} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-            {isPercent && <span className="text-xs text-slate-500">%</span>}
+        <Label className="col-span-8 text-xs md:text-sm text-slate-700 dark:text-slate-200">{label}</Label>
+        <div className="col-span-4 flex items-center gap-2 justify-end">
+            {isPercent ? (
+                <>
+                    <FormattedInput
+                        className="h-8 w-20 text-right"
+                        step="0.1"
+                        value={percentValue || 0}
+                        onChange={(v) => onPercentChange?.(v)}
+                    />
+                    <span className="text-xs text-slate-500">%</span>
+                    <span className="text-xs font-medium min-w-[60px] text-right">({new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(calculatedValue || 0)})</span>
+                </>
+            ) : (
+                <FormattedInput
+                    className="h-8 text-right w-24"
+                    value={value || 0}
+                    onChange={(v) => onChange?.(v)}
+                />
+            )}
         </div>
     </div>
 );

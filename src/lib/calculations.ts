@@ -5,7 +5,6 @@ export interface PropertyData {
     mlsNumber: string;
     address: string;
     city: string;
-    cadastre: string;
 
     // Purchase & Financing
     purchasePrice: number;
@@ -14,15 +13,7 @@ export interface PropertyData {
     amortizationYears: number;
 
     // Revenue Details
-    revLowWeekendPrice: number;
-    revLowWeekendCount: number;
-    revLowWeekPrice: number;
-    revLowWeekCount: number;
-    revHighWeekendPrice: number;
-    revHighWeekendCount: number;
-    revHighWeekPrice: number;
-    revHighWeekCount: number;
-
+    baseRevenue: number;
     badDebtPercent: number;
 
     // Expenses (Annual unless specified)
@@ -52,6 +43,9 @@ export interface PropertyData {
     managementRate: number;
     maintenanceRate: number;
     miscellaneousRate: number;
+
+    // Mortgage Section
+    monthlyMortgageAmount: number;
 
     // Partnership
     partnerCapital: number;
@@ -86,18 +80,15 @@ export const calculateProjections = (data: PropertyData, years = 5): AnnualResul
     const results: AnnualResult[] = [];
 
     // 1. Calculate Base Revenue (Year 1)
-    const revenueLowWeekend = data.revLowWeekendPrice * data.revLowWeekendCount;
-    const revenueLowWeek = data.revLowWeekPrice * data.revLowWeekCount;
-    const revenueHighWeekend = data.revHighWeekendPrice * data.revHighWeekendCount;
-    const revenueHighWeek = data.revHighWeekPrice * data.revHighWeekCount;
-
-    const potentialGrossIncome = revenueLowWeekend + revenueLowWeek + revenueHighWeekend + revenueHighWeek;
+    const potentialGrossIncome = data.baseRevenue;
     const badDebt = potentialGrossIncome * (data.badDebtPercent / 100);
     let currentIncome = potentialGrossIncome - badDebt;
 
     // 2. Calculate Base Expenses (Year 1)
-    const totalBookings = data.revLowWeekendCount + data.revLowWeekCount + data.revHighWeekendCount + data.revHighWeekCount;
-    const annualCleaning = data.cleaningCostPerStay * totalBookings;
+    // We'll keep the cleaning bookings assumption for now or simplify it? 
+    // The prompt didn't specify changing cleaning, but since we removed booking counts, cleaning must be annual or fixed.
+    // Let's assume annual cleaning for now if counts are gone, or keep a default.
+    const annualCleaning = data.cleaningCostPerStay; // Now treated as annual or base cleaning total
 
     const annualCondoFees = data.condoFees * 12;
 
@@ -130,13 +121,17 @@ export const calculateProjections = (data: PropertyData, years = 5): AnnualResul
     let currentPropertyValue = data.purchasePrice;
     let mortgageBalance = data.mortgageAmount;
 
-    // Mortgage Constants
+    // Mortgage Constants - NOW USING Direct Input
+    const annualMortgagePayment = data.monthlyMortgageAmount * 12;
+
+    // We still need principal paydown for ROI calculations, so we'll keep the amortization logic 
+    // but use the input payment if possible, or recalculate if not provided.
+    // For now, let's stick to the amortization logic for principal but use the user's payment for cashflow.
     const monthlyRate = (data.mortgageInterestRate / 100) / 12;
     const numPayments = data.amortizationYears * 12;
-    const monthlyMortgagePayment = (monthlyRate === 0)
+    const calculatedMonthlyPayment = (monthlyRate === 0)
         ? mortgageBalance / numPayments
         : (mortgageBalance * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1);
-    const annualMortgagePayment = monthlyMortgagePayment * 12;
 
     for (let y = 1; y <= years; y++) {
         // Variable Expenses (depend on currentIncome)
@@ -152,10 +147,9 @@ export const calculateProjections = (data: PropertyData, years = 5): AnnualResul
 
         // Mortgage Principal Paydown
         let annualPrincipalPaydown = 0;
-
         for (let m = 0; m < 12; m++) {
             const interest = mortgageBalance * monthlyRate;
-            const principal = monthlyMortgagePayment - interest;
+            const principal = calculatedMonthlyPayment - interest;
             if (mortgageBalance > 0) {
                 annualPrincipalPaydown += principal;
                 mortgageBalance -= principal;
@@ -205,22 +199,13 @@ export const defaultPropertyData: PropertyData = {
     mlsNumber: "",
     address: "433 Ioan",
     city: "Wentworth-Nord",
-    cadastre: "",
 
     purchasePrice: 650000,
     mortgageAmount: 500000,
     mortgageInterestRate: 6.0,
     amortizationYears: 25,
 
-    revLowWeekendPrice: 1000,
-    revLowWeekendCount: 15,
-    revLowWeekPrice: 1500,
-    revLowWeekCount: 5,
-    revHighWeekendPrice: 1500,
-    revHighWeekendCount: 20,
-    revHighWeekPrice: 2000,
-    revHighWeekCount: 10,
-
+    baseRevenue: 120000,
     badDebtPercent: 0,
 
     taxMunicipal: 4000,
@@ -244,10 +229,12 @@ export const defaultPropertyData: PropertyData = {
     accounting: 0,
     advertising: 0,
 
-    cleaningCostPerStay: 150,
+    cleaningCostPerStay: 7500, // Annualized for now
     managementRate: 8,
     maintenanceRate: 5,
     miscellaneousRate: 1,
+
+    monthlyMortgageAmount: 3200,
 
     partnerCapital: 150000,
     partnerShare: 50,
